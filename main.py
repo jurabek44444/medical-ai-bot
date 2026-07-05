@@ -9,7 +9,7 @@ GROQ_API_KEY = "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"
 SERVER_URL = "https://medical-ai-bot-8zk8.onrender.com"
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-app = Flask(name)
+app = Flask(__name__)
 
 # Groq API bilan ishlash funksiyasi
 def ask_groq(user_text):
