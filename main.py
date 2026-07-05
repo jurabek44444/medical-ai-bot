@@ -1,38 +1,52 @@
 import os
 import telebot
-import google.generativeai as genai
+import requests
 from flask import Flask, request
 
-# Kalitlarni xavfsizlik uchun server muhitidan olamiz
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GEMINI_KEY = os.environ.get("GEMINI_KEY")
-SERVER_URL = os.environ.get("SERVER_URL") # Render beradigan havola
+# KALITLARNI SHU YERGA QO'YING
+TELEGRAM_TOKEN = "8634010470:AAEVssJr-8Or71jnjg4DNKeYc2OkbupFOKQ"
+GROQ_API_KEY = "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"
+SERVER_URL = "https://medical-ai-bot-8zk8.onrender.com"
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-genai.configure(api_key=GEMINI_KEY)
+app = Flask(name)
 
-app = Flask(__name__)
-
-system_instruction = (
-    "Sen tibbiyot va farmakologiya sohasi mutaxassisisan. "
-    "Foydalanuvchi yozgan mavzuni slaydma-slayd bo'lingan prezentatsiya matni ko'rinishida yozib ber."
-)
-model = genai.GenerativeModel(model_name="gemini-1.5-flash", system_instruction=system_instruction)
+# Groq API bilan ishlash funksiyasi
+def ask_groq(user_text):
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "llama-3.1-70b-versatile", # Kuchli va aqlli model
+        "messages": [
+            {
+                "role": "system",
+                "content": "Sen tibbiyot va dori vositalari (farmakologiya) sohasi mutaxassisisan. Foydalanuvchi yozgan har qanday mavzuni professional darajada, slaydma-slayd bo'lingan prezentatsiya matni ko'rinishida o'zbek tilida yozib ber."
+            },
+            {
+                "role": "user",
+                "content": user_text
+            }
+        ]
+    }
+    response = requests.post(url, json=data, headers=headers)
+    return response.json()['choices'][0]['message']['content']
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Salom! Men tibbiy prezentatsiyalar tayyorlovchi AI botman. Mavzuni yozing:")
+    bot.reply_to(message, "Salom! Men TFI talabalari uchun tibbiy prezentatsiyalar tayyorlovchi AI botman. Mavzuni yozing:")
 
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
     bot.send_chat_action(message.chat.id, 'typing')
     try:
-        response = model.generate_content(message.text)
-        bot.reply_to(message, response.text)
+        ai_response = ask_groq(message.text)
+        bot.reply_to(message, ai_response)
     except Exception as e:
-        bot.reply_to(message, "Xatolik yuz berdi. Birozdan so'ng urinib ko'ring.")
+        bot.reply_to(message, f"Xatolik yuz berdi: {e}")
 
-# Server uchun Webhook sozlamalari (Avtomatik ishlash uchun)
 @app.route('/' + TELEGRAM_TOKEN, methods=['POST'])
 def getMessage():
     json_string = request.get_data().decode('utf-8')
@@ -46,5 +60,5 @@ def webhook():
     bot.set_webhook(url=SERVER_URL + '/' + TELEGRAM_TOKEN)
     return "Bot ishlamoqda!", 200
 
-if __name__ == "__main__":
+if name == "main":
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
