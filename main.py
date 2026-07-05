@@ -60,5 +60,6 @@ def webhook():
     bot.set_webhook(url=SERVER_URL + '/' + TELEGRAM_TOKEN)
     return "Bot ishlamoqda!", 200
 
-if name == "main":
+if __name__ == "__main__":
+    app.run()
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
